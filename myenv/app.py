@@ -5,14 +5,22 @@ from flask import request
 from flask_sqlalchemy import SQLAlchemy
 from flask import url_for
 from flask import redirect
-
-
+from flask_login import (current_user, LoginManager,
+                             login_user, logout_user,
+                             login_required)
+import hashlib
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://testeuser:toledo22@localhost:3306/mydb'
+#app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://testeuser:toledo22@localhost:3306/mydb'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://enzofarias:toledo22@enzofarias.mysql.pythonanywhere-services.com:3306/enzofarias$mydb'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
+
+app.secret_key = 'time muzy'
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
 
 class Usuario(db.Model):
     __tablename__ = "usuario"
@@ -27,6 +35,18 @@ class Usuario(db.Model):
         self.email = email
         self.senha = senha
         self.end = end
+
+    def is_authenticated(self):
+        return True
+
+    def is_active(self):
+        return True
+
+    def is_anonymous(self):
+        return False
+
+    def get_id(self):
+        return str(self.id)
 
 class Categoria(db.Model):
     __tablename__ = "categoria"
@@ -56,19 +76,51 @@ class Anuncio(db.Model):
         self.cat_id = cat_id
         self.usu_id = usu_id
 
+@app.errorhandler(404)
+def paginanaoencontrada(error):
+    return render_template('pagnaoencontrada.html')
+
+@login_manager.user_loader
+def load_user(id):
+    return Usuario.query.get(id)
+
+@app.route("/login", methods=['GET','POST'])
+def login():
+    if request.method == 'POST':
+        email = request.form.get('email')
+        passwd = hashlib.sha512(str(request.form.get('passwd')).encode("utf-8")).hexdigest()
+
+        user = Usuario.query.filter_by(email=email, senha=passwd).first()
+
+        if user:
+            login_user(user)
+            return redirect(url_for('index'))
+        else:
+            return redirect(url_for('login'))
+    return render_template('login.html', titulo = "Login")
+
+@app.route("/logout")
+def logout():
+    logout_user()
+    return redirect(url_for('index'))
+
 @app.route("/")
+@login_required
 def index():
     return render_template('index.html')
 
 @app.route("/cad/usuario")
+@login_required
 def usuario():
     return render_template('usuario.html', usuarios = Usuario.query.all(), titulo="Usuario")
 
 @app.route("/usuario/criar", methods=['POST'])
-def novousuario():
-    usuario = Usuario(request.form.get('user'), request.form.get('email'),request.form.get('passwd'),request.form.get('end'))
+def criarusuario():
+    hash = hashlib.sha512(str(request.form.get('passwd')).encode("utf-8")).hexdigest()
+    usuario = Usuario(request.form.get('user').capitalize(), request.form.get('email'),hash,request.form.get('end'))
     db.session.add(usuario)
     db.session.commit()
+    print("passei aqui")
     return redirect(url_for('usuario'))
 
 @app.route("/usuario/detalhar/<int:id>")
@@ -76,46 +128,50 @@ def buscarusuario(id):
     usuario = Usuario.query.get(id)
     return usuario.nome
 
-@app.route("/usuario/editar/<int:id>", methods=["GET", "POST"])
+@app.route("/usuario/editar/<int:id>", methods=['GET','POST'])
 def editarusuario(id):
     usuario = Usuario.query.get(id)
-    if request.method == "POST":
-        usuario.nome = request.form.get("nome")
-        usuario.email = request.form.get("email")
-        usuario.senha = request.form.get("passwd")
-        usuario.end = request.form.get("end")
-
+    if request.method == 'POST':
+        usuario.nome = request.form.get('user')
+        usuario.email = request.form.get('email')
+        usuario.senha = hashlib.sha512(str(request.form.get('passwd')).encode("utf-8")).hexdigest()
+        usuario.end = request.form.get('end')
         db.session.add(usuario)
         db.session.commit()
-        return redirect(url_for("usuario"))
-
-    return render_template("eusuario.html", usuario= usuario, titulo= "Usuario")
-
-
+        return redirect(url_for('usuario'))
+    return render_template('eusuario.html', usuario = usuario, titulo="Usuario")
 
 @app.route("/usuario/deletar/<int:id>")
 def deletarusuario(id):
     usuario = Usuario.query.get(id)
     db.session.delete(usuario)
     db.session.commit()
-    return redirect(url_for('usuario'))
+    return redirect(url_for('usuario'))     
 
 @app.route("/cad/anuncio")
+@login_required
 def anuncio():
     return render_template('anuncio.html', anuncios = Anuncio.query.all(), categorias = Categoria.query.all(), titulo="Anuncio")
 
-@app.route("/anuncio/novo", methods=['POST'])
-def novoanuncio():
+@app.route("/anuncio/criar", methods=['POST'])
+def criaranuncio():
     anuncio = Anuncio(request.form.get('nome'), request.form.get('desc'),request.form.get('qtd'),request.form.get('preco'),request.form.get('cat'),request.form.get('uso'))
     db.session.add(anuncio)
     db.session.commit()
     return redirect(url_for('anuncio'))
 
-@app.route("/anuncio/pergunta")
+@app.route("/anuncio/deletar/<int:id>")
+def deletaranuncio(id):
+    anuncio = Anuncio.query.get(id)
+    db.session.delete(anuncio)
+    db.session.commit()
+    return redirect(url_for('anuncio'))  
+
+@app.route("/anuncios/pergunta")
 def pergunta():
     return render_template('pergunta.html')
 
-@app.route("/anuncio/compra")
+@app.route("/anuncios/compra")
 def compra():
     print("anuncio comprado")
     return ""
@@ -129,8 +185,8 @@ def favoritos():
 def categoria():
     return render_template('categoria.html', categorias = Categoria.query.all(), titulo='Categoria')
 
-@app.route("/categoria/novo", methods=['POST'])
-def novacategoria():
+@app.route("/categoria/criar", methods=['POST'])
+def criarcategoria():
     categoria = Categoria(request.form.get('nome'), request.form.get('desc'))
     db.session.add(categoria)
     db.session.commit()
@@ -144,10 +200,6 @@ def relVendas():
 def relCompras():
     return render_template('relCompras.html')
 
-@app.errorhandler(404)
-def paginanaoencontrada(error):
-    return render_template('pagnaoencontrada.html')
-
 if __name__ == 'app':
-    print("app")
     db.create_all()
+    app.run()

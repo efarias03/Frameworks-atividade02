@@ -1,0 +1,66 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins&display=swap');
+
+* {
+    padding: 0;
+    margin: 0;
+    border: 0;
+    box-sizing: border-box;
+    font-family: 'Poppins', sans-serif;
+}
+
+
+.body-content {
+    width: 100vw;
+    height: 90vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 2rem;
+    
+}
+
+.brand {
+    position: relative;
+    margin-left: 2rem;
+}
+
+
+.titulo {
+    width: 100vw;
+}
+
+.login-box {
+    width: 25rem;
+    height: 20rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 2rem;
+    background: rgba( 255, 255, 255, 0.75 );
+box-shadow: 0 8px 32px 0 rgba( 31, 38, 135, 0.37 );
+backdrop-filter: blur( 2px );
+-webkit-backdrop-filter: blur( 2px );
+border-radius: 10px;
+border: 1px solid rgba( 255, 255, 255, 0.18 );
+}
+
+.login-box input {
+    width: 23rem;
+}
+
+.body-text-box {
+    margin-top: 4rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: flex-start;
+    gap: 4rem;
+    width: 50rem;
+    height: 50rem;
+}
+
+.body-text-box p {
+    font-size: 1.5rem;
+}
